@@ -33,3 +33,189 @@ select{font-weight:700;font-size:14px}
 table{width:100%;border-collapse:collapse}
 th,td{border:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
 th{background:rgba(128,128,128,.16);font-weight:600}
+.c-sl{width:56px;text-align:center}.c-qty,.c-amt{width:78px}
+td.x,th.x{width:36px;text-align:center;border:none;padding:0;background:none}
+.noexp .x{display:none}
+.x button{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px}
+.empty{color:var(--muted);text-align:center;padding:16px}
+.h-sl .c-sl,.h-item .c-item,.h-desc .c-desc,.h-qty .c-qty,.h-amt .c-amt{display:none}
+#tot{text-align:right;font-weight:700;margin:8px 2px 0}
+.notewrap{margin-top:12px}.lbl{color:var(--muted);margin-bottom:4px}
+textarea{width:100%;resize:vertical}
+#notep{display:none;white-space:pre-wrap;border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:44px}
+.noexp textarea{display:none}.noexp #notep{display:block}.noexp .notewrap.empty{display:none}
+.foot{text-align:right;font-size:10px;color:var(--muted);margin-top:10px}
+form{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+form input{flex:1 1 110px;width:100%}
+form button,.bar button{font-weight:600;border:none;padding:9px 14px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+form button{flex:1 1 100%}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.bar button.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.cols{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 12px;color:var(--muted)}
+.cols label{display:flex;align-items:center;gap:4px;color:var(--ink)}
+.cols input{padding:0;width:auto;accent-color:var(--accent)}
+.days{display:flex;gap:6px;overflow-x:auto;margin:0 0 6px}.days button{flex:1 0 auto;padding:6px 8px;line-height:1.35;text-align:center;cursor:pointer}.days button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.hint{color:var(--muted);font-size:12px;margin:0 0 12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="cols" id="cols"><span>কলাম:</span>
+    <label><input type="checkbox" data-k="sl"> ক্রমিক</label>
+    <label><input type="checkbox" data-k="item"> আইটেম</label>
+    <label><input type="checkbox" data-k="desc"> বিবরণ</label>
+    <label><input type="checkbox" data-k="qty"> পরিমাণ</label>
+    <label><input type="checkbox" data-k="amt"> টাকা</label>
+  </div>
+  <div class="cols"><label>Prepared By: <input id="byin" placeholder="নাম লিখুন" style="width:180px"></label></div>
+  <form id="f" autocomplete="off" aria-label="নতুন এন্ট্রি">
+    <input class="c-item" id="item" placeholder="আইটেম">
+    <input class="c-desc" id="desc" placeholder="বিবরণ">
+    <input class="c-qty" id="qty" placeholder="পরিমাণ">
+    <input class="c-amt" id="amt" placeholder="টাকা" inputmode="decimal">
+    <button type="submit">যোগ করুন</button>
+  </form>
+
+  <div class="days" id="days"></div>
+  <p class="hint">শেষ ৭ দিনের ডাটা জমা থাকে, তার আগের দিনের ডাটা নিজে থেকে মুছে যায়।</p>
+
+  <div id="sheet">
+    <h1>Fulkoli Sweets</h1>
+    <div style="text-align:center;margin:-6px 0 12px"><select id="stat" aria-label="অবস্থা"><option>খসড়া</option><option>ফাইনাল</option></select></div>
+    <div class="top">
+      <select id="dir" aria-label="দিক"><option>BKT ---&gt; BB</option><option>BB ---&gt; BKT</option></select>
+      <label class="date">তারিখ <input type="date" id="date"></label>
+    </div>
+    <table>
+      <thead><tr><th class="c-sl">ক্রমিক</th><th class="c-item">আইটেম</th><th class="c-desc">বিবরণ</th><th class="c-qty">পরিমাণ</th><th class="c-amt">টাকা</th><th class="x"></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="tot"></div>
+    <div class="notewrap" id="nw"><div class="lbl">নোট</div><textarea id="note" rows="3" placeholder="এখানে নোট লিখুন"></textarea><div id="notep"></div></div>
+    <div class="foot">Prepared By <span id="by"></span></div>
+  </div>
+
+  <div class="bar">
+    <button id="pdf">PDF সেভ</button>
+    <button id="img">ইমেজ সেভ</button>
+    <button id="clr" class="alt">সব মুছুন</button>
+  </div>
+  <p id="msg" role="status" style="color:var(--muted);margin:8px 0 0"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+  var KEY="fulkoli-v1",C=["sl","item","desc","qty","amt"],D="০১২৩৪৫৬৭৮৯",CL="এই দিনের সব মুছুন",WD=["রবি","সোম","মঙ্গল","বুধ","বৃহ","শুক্র","শনি"];
+  var $=function(i){return document.getElementById(i)};
+  function p2(n){return n<10?"0"+n:""+n}
+  function ymd(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())}
+  function ago(n){var d=new Date();d.setDate(d.getDate()-n);return ymd(d)}
+  var A={cols:{},date:ago(0),days:{}},st;
+  try{
+    var s=JSON.parse(localStorage.getItem(KEY)||"null");
+    if(s&&s.days){A=s}
+    else if(s&&s.rows){A.cols=s.cols||{};A.days[s.date||ago(0)]={dir:s.dir,stat:s.stat,rows:s.rows,note:s.note}}
+  }catch(e){}
+  if(!A.cols)A.cols={};if(!A.days)A.days={};
+  function prune(){var c=ago(6);Object.keys(A.days).forEach(function(k){if(k<c)delete A.days[k]})}
+  function loadDay(d){var x=A.days[d]||{};st={dir:x.dir||"BKT ---> BB",stat:x.stat||"খসড়া",rows:x.rows||[],note:x.note||"",date:d}}
+  prune();
+  loadDay(A.date<ago(6)?ago(0):A.date);
+  function save(){A.days[st.date]={dir:st.dir,stat:st.stat,rows:st.rows,note:st.note};A.date=st.date;prune();try{localStorage.setItem(KEY,JSON.stringify(A))}catch(e){}}
+  function bn(n){return String(n).replace(/\d/g,function(d){return D[d]})}
+  function esc(t){var d=document.createElement("div");d.textContent=t||"";return d.innerHTML}
+  function num(v){v=String(v||"").replace(/[০-৯]/g,function(d){return D.indexOf(d)}).replace(/,/g,"");var m=v.match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):0}
+  function on(k){return A.cols[k]!==false}
+  function gotoDay(d){save();loadDay(d);render()}
+  function render(){
+    $("dir").value=st.dir;$("date").value=st.date;$("date").min=ago(6);$("stat").value=st.stat;$("note").value=st.note;
+    var by=A.by===undefined?"Kaiser":A.by;$("byin").value=by;$("by").textContent=by;
+    var h="";
+    for(var i=6;i>=0;i--){
+      var k=ago(i),p=k.split("-"),dt=new Date(+p[0],+p[1]-1,+p[2]),x=A.days[k],has=x&&x.rows&&x.rows.length;
+      h+='<button data-d="'+k+'"'+(k===st.date?' class="on"':'')+'>'+WD[dt.getDay()]+'<br>'+bn(+p[2])+'/'+bn(+p[1])+(has?' •':'')+'</button>';
+    }
+    $("days").innerHTML=h;
+    C.forEach(function(k){document.body.classList.toggle("h-"+k,!on(k));document.querySelector('[data-k="'+k+'"]').checked=on(k)});
+    $("rows").innerHTML=st.rows.length?st.rows.map(function(r,i){
+      return '<tr><td class="c-sl">'+bn(i+1)+'</td><td class="c-item">'+esc(r.item)+'</td><td class="c-desc">'+esc(r.desc)+'</td><td class="c-qty">'+esc(r.qty)+'</td><td class="c-amt">'+esc(r.amt)+'</td><td class="x"><button data-i="'+i+'" aria-label="মুছুন">×</button></td></tr>'
+    }).join(""):'<tr><td colspan="6" class="empty">উপরের ফর্মে লিখে যোগ করুন</td></tr>';
+    var t=st.rows.reduce(function(a,r){return a+num(r.amt)},0);
+    $("tot").textContent=on("amt")&&st.rows.length?"মোট টাকা: "+bn(t.toLocaleString("en-IN")):"";
+    $("clr").textContent=CL;
+  }
+  $("days").addEventListener("click",function(e){var b=e.target.closest("button[data-d]");if(b&&b.dataset.d!==st.date)gotoDay(b.dataset.d)});
+  $("date").addEventListener("change",function(){
+    var d=this.value;if(!d)return;
+    if(d<ago(6)){msg("শুধু শেষ ৭ দিনের ডাটা রাখা হয়");this.value=st.date;return}
+    if(d!==st.date)gotoDay(d);
+  });
+  $("f").addEventListener("submit",function(e){
+    e.preventDefault();
+    var r={item:$("item").value.trim(),desc:$("desc").value.trim(),qty:$("qty").value.trim(),amt:$("amt").value.trim()};
+    if(!(r.item||r.desc||r.qty||r.amt))return;
+    st.rows.push(r);save();render();$("f").reset();
+    var f=C.slice(1).find(on);if(f)$(f).focus();
+  });
+  $("rows").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-i]");if(!b)return;
+    st.rows.splice(+b.dataset.i,1);save();render();
+  });
+  $("cols").addEventListener("change",function(e){var k=e.target.dataset.k;if(!k)return;A.cols[k]=e.target.checked;save();render()});
+  $("dir").addEventListener("change",function(){st.dir=this.value;save()});
+  $("stat").addEventListener("change",function(){st.stat=this.value;save()});
+  $("note").addEventListener("input",function(){st.note=this.value;save()});
+  $("byin").addEventListener("input",function(){A.by=this.value;$("by").textContent=this.value;save()});
+  var armed=false;
+  $("clr").addEventListener("click",function(){
+    if(!st.rows.length)return;
+    if(!armed){armed=true;this.textContent="নিশ্চিত? আবার চাপুন";setTimeout(function(){armed=false;$("clr").textContent=CL},3000);return}
+    armed=false;this.textContent=CL;st.rows=[];save();render();
+  });
+  function msg(t){$("msg").textContent=t}
+  function fname(e){return "fulkoli-"+st.date+"."+e}
+  function snap(){
+    var el=$("sheet"),n=(st.note||"").trim();
+    $("notep").textContent=n;$("nw").classList.toggle("empty",!n);el.classList.add("noexp");
+    var bg=getComputedStyle(el).backgroundColor;
+    var done=function(){el.classList.remove("noexp")};
+    return html2canvas(el,{scale:2,backgroundColor:bg}).then(function(c){done();return c},function(e){done();throw e});
+  }
+  function plain(fn,data){
+    return new Promise(function(res,rej){
+      try{var u=URL.createObjectURL(data),a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000);res()}catch(e){rej(e)}
+    });
+  }
+  function tryDl(fn,data){
+    if(window.claude&&window.claude.use){
+      return window.claude.use("downloads").then(function(d){return d?d.save({filename:fn,data:data}):plain(fn,data)});
+    }
+    return plain(fn,data);
+  }
+  function err(e){msg("সমস্যা: "+((e&&(e.code||e.message))||e))}
+  var ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:99;display:none;overflow:auto;padding:16px;color:#fff;text-align:center;font-size:14px";
+  document.body.appendChild(ov);
+  var bs="font:inherit;border:none;border-radius:6px;padding:9px 16px;margin:4px;cursor:pointer;background:#fff;color:#222";
+  function show(c){
+    ov.innerHTML='<p style="margin:0 0 10px">ছবিটা চেপে ধরে রাখুন → “Save image” বা “ছবি সেভ” নিন</p><img src="'+c.toDataURL("image/png")+'" style="max-width:100%;background:#fff" alt="Fulkoli Sweets"><p><button id="ovdl" style="'+bs+'">ডাউনলোড চেষ্টা</button><button id="ovx" style="'+bs+'">বন্ধ</button></p><p id="ovm"></p>';
+    ov.style.display="block";
+    $("ovx").onclick=function(){ov.style.display="none"};
+    $("ovdl").onclick=function(){c.toBlob(function(b){tryDl(fname("png"),b).then(function(){$("ovm").textContent="সেভ হয়েছে"}).catch(function(){$("ovm").textContent="ডাউনলোড হয়নি, ছবিতে চেপে ধরে সেভ করুন"})},"image/png")};
+  }
+  $("img").addEventListener("click",function(){msg("");snap().then(show).catch(err)});
+  $("pdf").addEventListener("click",function(){
+    msg("");
+    snap().then(function(c){
+      var p=new window.jspdf.jsPDF({unit:"mm",format:"a4"}),w=190,h=c.height*w/c.width,pg=277,y=0,im=c.toDataURL("image/jpeg",.95);
+      while(y<h){p.addImage(im,"JPEG",10,10-y,w,h);y+=pg;if(y<h)p.addPage()}
+      return tryDl(fname("pdf"),p.output("blob")).then(function(){msg("PDF সেভ হয়েছে")},function(){msg("PDF ডাউনলোড হয়নি, তাই ছবি দেখানো হলো");show(c)});
+    }).catch(err);
+  });
+  render();
+})();
+</script>
+<script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
+</body>
+</html>
