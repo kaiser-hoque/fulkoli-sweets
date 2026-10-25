@@ -175,9 +175,16 @@ form button{flex:1 1 100%}
     var done=function(){el.classList.remove("noexp")};
     return html2canvas(el,{scale:2,backgroundColor:bg}).then(function(c){done();return c},function(e){done();throw e});
   }
+  function plain(fn,data){
+    return new Promise(function(res,rej){
+      try{var u=URL.createObjectURL(data),a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000);res()}catch(e){rej(e)}
+    });
+  }
   function tryDl(fn,data){
-    if(!window.claude||!window.claude.use)return Promise.reject({code:"unavailable"});
-    return window.claude.use("downloads").then(function(d){if(!d)throw {code:"unavailable"};return d.save({filename:fn,data:data})});
+    if(window.claude&&window.claude.use){
+      return window.claude.use("downloads").then(function(d){return d?d.save({filename:fn,data:data}):plain(fn,data)});
+    }
+    return plain(fn,data);
   }
   function err(e){msg("সমস্যা: "+((e&&(e.code||e.message))||e))}
   var ov=document.createElement("div");
