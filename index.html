@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="bn">
 <head>
 <meta charset="utf-8">
@@ -34,7 +34,7 @@ table{width:100%;border-collapse:collapse}
 th,td{border:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
 th{background:rgba(128,128,128,.16);font-weight:600}
 .c-sl{width:56px;text-align:center}.c-qty,.c-amt{width:78px}
-td.x,th.x{width:36px;text-align:center;border:none;padding:0;background:none}
+td.x,th.x{width:70px;white-space:nowrap;text-align:center;border:none;padding:0;background:none}
 .noexp .x{display:none}
 .x button{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px}
 .empty{color:var(--muted);text-align:center;padding:16px}
@@ -72,7 +72,8 @@ form button{flex:1 1 100%}
     <input class="c-desc" id="desc" placeholder="বিবরণ">
     <input class="c-qty" id="qty" placeholder="পরিমাণ">
     <input class="c-amt" id="amt" placeholder="টাকা" inputmode="decimal">
-    <button type="submit">যোগ করুন</button>
+    <button type="button" id="sub">যোগ করুন</button>
+    <button type="button" id="cnl" class="alt" style="display:none;flex:1 1 100%">বাতিল</button>
   </form>
 
   <div class="days" id="days"></div>
@@ -97,6 +98,8 @@ form button{flex:1 1 100%}
   <div class="bar">
     <button id="pdf">PDF সেভ</button>
     <button id="img">ইমেজ সেভ</button>
+    <button id="cpy" class="alt">কপি</button>
+    <button id="pst" class="alt">পেস্ট</button>
     <button id="clr" class="alt">সব মুছুন</button>
   </div>
   <p id="msg" role="status" style="color:var(--muted);margin:8px 0 0"></p>
@@ -121,29 +124,34 @@ form button{flex:1 1 100%}
   function prune(){var c=ago(6);Object.keys(A.days).forEach(function(k){if(k<c)delete A.days[k]})}
   function loadDay(d){var x=A.days[d]||{};st={dir:x.dir||"BKT ---> BB",stat:x.stat||"খসড়া",rows:x.rows||[],note:x.note||"",date:d}}
   prune();
-  loadDay(A.date<ago(6)?ago(0):A.date);
+  loadDay(ago(-1));
   function save(){A.days[st.date]={dir:st.dir,stat:st.stat,rows:st.rows,note:st.note};A.date=st.date;prune();try{localStorage.setItem(KEY,JSON.stringify(A))}catch(e){}}
   function bn(n){return String(n).replace(/\d/g,function(d){return D[d]})}
   function esc(t){var d=document.createElement("div");d.textContent=t||"";return d.innerHTML}
   function num(v){v=String(v||"").replace(/[০-৯]/g,function(d){return D.indexOf(d)}).replace(/,/g,"");var m=v.match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):0}
   function on(k){return A.cols[k]!==false}
-  function gotoDay(d){save();loadDay(d);render()}
+  var ed=-1;
+  function fmt(k){var p=k.split("-");return bn(+p[2])+"/"+bn(+p[1])}
+  function resetEdit(){ed=-1;$("f").reset();$("sub").textContent="যোগ করুন";$("cnl").style.display="none"}
+  function gotoDay(d){save();loadDay(d);resetEdit();render()}
   function render(){
     $("dir").value=st.dir;$("date").value=st.date;$("date").min=ago(6);$("stat").value=st.stat;$("note").value=st.note;
     var by=A.by===undefined?"Kaiser":A.by;$("byin").value=by;$("by").textContent=by;
     var h="";
-    for(var i=6;i>=0;i--){
-      var k=ago(i),p=k.split("-"),dt=new Date(+p[0],+p[1]-1,+p[2]),x=A.days[k],has=x&&x.rows&&x.rows.length;
+    var ks=[];for(var j=6;j>=-1;j--)ks.push(ago(j));if(ks.indexOf(st.date)<0)ks.push(st.date);
+    for(var i=0;i<ks.length;i++){
+      var k=ks[i],p=k.split("-"),dt=new Date(+p[0],+p[1]-1,+p[2]),x=A.days[k],has=x&&x.rows&&x.rows.length;
       h+='<button data-d="'+k+'"'+(k===st.date?' class="on"':'')+'>'+WD[dt.getDay()]+'<br>'+bn(+p[2])+'/'+bn(+p[1])+(has?' •':'')+'</button>';
     }
     $("days").innerHTML=h;
     C.forEach(function(k){document.body.classList.toggle("h-"+k,!on(k));document.querySelector('[data-k="'+k+'"]').checked=on(k)});
     $("rows").innerHTML=st.rows.length?st.rows.map(function(r,i){
-      return '<tr><td class="c-sl">'+bn(i+1)+'</td><td class="c-item">'+esc(r.item)+'</td><td class="c-desc">'+esc(r.desc)+'</td><td class="c-qty">'+esc(r.qty)+'</td><td class="c-amt">'+esc(r.amt)+'</td><td class="x"><button data-i="'+i+'" aria-label="মুছুন">×</button></td></tr>'
+      return '<tr><td class="c-sl">'+bn(i+1)+'</td><td class="c-item">'+esc(r.item)+'</td><td class="c-desc">'+esc(r.desc)+'</td><td class="c-qty">'+esc(r.qty)+'</td><td class="c-amt">'+esc(r.amt)+'</td><td class="x"><button data-e="'+i+'" aria-label="এডিট">✎</button><button data-i="'+i+'" aria-label="মুছুন">×</button></td></tr>'
     }).join(""):'<tr><td colspan="6" class="empty">উপরের ফর্মে লিখে যোগ করুন</td></tr>';
     var t=st.rows.reduce(function(a,r){return a+num(r.amt)},0);
     $("tot").textContent=on("amt")&&st.rows.length?"মোট টাকা: "+bn(t.toLocaleString("en-IN")):"";
     $("clr").textContent=CL;
+    $("pst").textContent=A.clip&&A.clip.rows&&A.clip.rows.length?"পেস্ট ("+fmt(A.clip.from)+", "+bn(A.clip.rows.length)+"টি)":"পেস্ট";
   }
   $("days").addEventListener("click",function(e){var b=e.target.closest("button[data-d]");if(b&&b.dataset.d!==st.date)gotoDay(b.dataset.d)});
   $("date").addEventListener("change",function(){
@@ -151,22 +159,46 @@ form button{flex:1 1 100%}
     if(d<ago(6)){msg("শুধু শেষ ৭ দিনের ডাটা রাখা হয়");this.value=st.date;return}
     if(d!==st.date)gotoDay(d);
   });
-  $("f").addEventListener("submit",function(e){
-    e.preventDefault();
+  function addItem(e){
+    if(e)e.preventDefault();
     var r={item:$("item").value.trim(),desc:$("desc").value.trim(),qty:$("qty").value.trim(),amt:$("amt").value.trim()};
     if(!(r.item||r.desc||r.qty||r.amt))return;
-    st.rows.push(r);save();render();$("f").reset();
+    if(ed>=0&&st.rows[ed]){st.rows[ed]=r;msg("আইটেম আপডেট হয়েছে")}else st.rows.push(r);
+    resetEdit();save();render();
     var f=C.slice(1).find(on);if(f)$(f).focus();
-  });
+  }
+  $("sub").addEventListener("click",addItem);
+  $("f").addEventListener("submit",addItem);
+  $("f").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.tagName==="INPUT")addItem(e)});
   $("rows").addEventListener("click",function(e){
-    var b=e.target.closest("button[data-i]");if(!b)return;
-    st.rows.splice(+b.dataset.i,1);save();render();
+    var b=e.target.closest("button");if(!b)return;
+    if(b.dataset.e!==undefined){
+      var r=st.rows[+b.dataset.e];if(!r)return;
+      ed=+b.dataset.e;$("item").value=r.item||"";$("desc").value=r.desc||"";$("qty").value=r.qty||"";$("amt").value=r.amt||"";
+      $("sub").textContent="আপডেট করুন";$("cnl").style.display="block";msg("এডিট করছেন: "+bn(ed+1)+" নম্বর আইটেম");
+      $("f").scrollIntoView({behavior:"smooth",block:"center"});$("item").focus();return;
+    }
+    if(b.dataset.i!==undefined){st.rows.splice(+b.dataset.i,1);resetEdit();save();render()}
   });
   $("cols").addEventListener("change",function(e){var k=e.target.dataset.k;if(!k)return;A.cols[k]=e.target.checked;save();render()});
   $("dir").addEventListener("change",function(){st.dir=this.value;save()});
   $("stat").addEventListener("change",function(){st.stat=this.value;save()});
   $("note").addEventListener("input",function(){st.note=this.value;save()});
   $("byin").addEventListener("input",function(){A.by=this.value;$("by").textContent=this.value;save()});
+  $("cnl").addEventListener("click",function(){resetEdit();msg("")});
+  $("cpy").addEventListener("click",function(){
+    if(!st.rows.length){msg("কপি করার মতো আইটেম নেই");return}
+    A.clip={from:st.date,dir:st.dir,note:st.note,rows:JSON.parse(JSON.stringify(st.rows))};
+    save();render();msg(fmt(st.date)+" তারিখের "+bn(st.rows.length)+"টি আইটেম কপি হয়েছে। এখন অন্য তারিখে গিয়ে পেস্ট চাপুন");
+  });
+  $("pst").addEventListener("click",function(){
+    var c=A.clip;if(!c||!c.rows||!c.rows.length){msg("আগে কোনো দিনের আইটেম কপি করুন");return}
+    if(c.from===st.date&&st.rows.length){msg("এটা একই তারিখ, অন্য তারিখ বেছে নিন");return}
+    var had=st.rows.length;
+    st.rows=st.rows.concat(JSON.parse(JSON.stringify(c.rows)));
+    if(!had){st.dir=c.dir||st.dir;if(!st.note)st.note=c.note||""}
+    resetEdit();save();render();msg(fmt(st.date)+" তারিখে "+bn(c.rows.length)+"টি আইটেম পেস্ট হয়েছে");
+  });
   var armed=false;
   $("clr").addEventListener("click",function(){
     if(!st.rows.length)return;
